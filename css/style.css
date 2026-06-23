@@ -1,0 +1,57 @@
+/* =========================================================================
+   ESTILO GLOBAL — Caça ao Petróleo
+   Responsabilidade: apenas o "moldura" (shell) do jogo. Toda a UI do jogo
+   é desenhada no canvas; o CSS só centraliza, escala e dá o clima visual.
+   ========================================================================= */
+
+:root {
+  --bg-top: #1a1208;
+  --bg-bottom: #0a0704;
+  --accent: #ffb22e;
+  --accent-dark: #c77f12;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: radial-gradient(circle at 50% 30%, var(--bg-top), var(--bg-bottom));
+  font-family: "Segoe UI", "Trebuchet MS", sans-serif;
+  color: #fff;
+  /* Impede seleção/realce ao clicar rápido durante o jogo */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+#game-shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#game-canvas {
+  /* O tamanho real (escala) é controlado por JS (Canvas.js).
+     Aqui garantimos pixel art nítida e uma borda sutil. */
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #000;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.6),
+              0 24px 60px rgba(0, 0, 0, 0.7);
+  border-radius: 4px;
+  cursor: crosshair;
+}
+
+.fatal-msg {
+  color: var(--accent);
+  font-size: 18px;
+  text-align: center;
+}

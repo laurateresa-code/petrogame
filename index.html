@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Caça ao Petróleo</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <!-- Container do jogo: mantém o canvas centralizado e com proporção fixa -->
+  <div id="game-shell">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Aviso exibido caso o jogo seja aberto via file:// (módulos ES não carregam) -->
+    <noscript class="fatal-msg">Ative o JavaScript para jogar.</noscript>
+  </div>
+
+  <!-- Ponto de entrada único. type="module" => requer servidor local (ver README) -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
