@@ -21,6 +21,7 @@ import { STATES, PALETTE } from "../config/Constants.js";
 import { Painter } from "../ui/Painter.js";
 
 // Estados concretos
+
 import { BootState } from "../states/BootState.js";
 import { MenuState } from "../states/MenuState.js";
 import { PlayState } from "../states/PlayState.js";
