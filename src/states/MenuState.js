@@ -52,6 +52,14 @@ export class MenuState extends State {
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, VIEW.WIDTH, VIEW.HEIGHT);
 
+    // Cabeçalho da apresentação (feira de ciências / turma).
+    Painter.text(ctx, "FEIRA DE CIÊNCIAS DO ARCOVERDE", VIEW.WIDTH / 2, 52, {
+      size: 22, color: PALETTE.TEXT, align: "center", baseline: "middle", weight: "bold", shadow: true,
+    });
+    Painter.text(ctx, "Turma 3001 apresenta:", VIEW.WIDTH / 2, 88, {
+      size: 16, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
+    });
+
     // Título com leve oscilação.
     const bob = Math.sin(this._time * 2) * 4;
     Painter.text(ctx, "CAÇA AO PETRÓLEO", VIEW.WIDTH / 2, 150 + bob, {
