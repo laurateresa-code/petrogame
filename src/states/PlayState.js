@@ -237,16 +237,15 @@ export class PlayState extends State {
   _renderHud(ctx) {
     const p = this.player;
 
-    // Painel superior-esquerdo: combustível + carga.
-    Painter.panel(ctx, 12, 12, 230, 86, { fill: "rgba(0,0,0,0.55)", radius: 10 });
+    // Painel superior-esquerdo: combustível + itens coletados.
+    Painter.panel(ctx, 12, 12, 230, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });
 
     Painter.text(ctx, "COMBUSTÍVEL", 24, 30, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
     const fuelRatio = p.fuel / GameConfig.fuel.max;
     const fuelColor = fuelRatio > 0.3 ? PALETTE.OK : PALETTE.DANGER;
     Painter.bar(ctx, 24, 38, 206, 12, fuelRatio, { fill: fuelColor, bg: "#2a2620" });
 
-    Painter.text(ctx, `CARGA  ${p.cargo}/${p.cargoMax}`, 24, 70, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
-    Painter.bar(ctx, 24, 78, 206, 10, p.cargo / p.cargoMax, { fill: PALETTE.ACCENT, bg: "#2a2620" });
+    Painter.text(ctx, `tesouros coletados: ${p.collected}`, 24, 66, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
 
     // Painel superior-direito: dinheiro + meta + profundidade.
     Painter.panel(ctx, VIEW.WIDTH - 222, 12, 210, 86, { fill: "rgba(0,0,0,0.55)", radius: 10 });
@@ -260,14 +259,7 @@ export class PlayState extends State {
       size: 12, color: PALETTE.TEXT_DIM, align: "right", baseline: "middle",
     });
 
-    // Valor da carga a bordo (ainda não vendido).
-    if (p.cargoValue > 0) {
-      Painter.text(ctx, `carga vale $${p.cargoValue}`, VIEW.WIDTH / 2, 26, {
-        size: 13, color: PALETTE.TEXT, align: "center", baseline: "middle",
-      });
-    }
-
-    // Mensagem flutuante (vendeu, achou gás, carga cheia...).
+    // Mensagem flutuante (vendeu, achou gás, reabasteceu...).
     if (p.flash) {
       Painter.text(ctx, p.flash, VIEW.WIDTH / 2, VIEW.HEIGHT - 40, {
         size: 18, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
@@ -276,7 +268,7 @@ export class PlayState extends State {
 
     // Dica de controles nos primeiros segundos.
     if (this._time < 7) {
-      Painter.text(ctx, "↓ perfurar  •  ← → mover/cavar  •  ↑/Espaço jato  •  volte à BASE para vender", VIEW.WIDTH / 2, VIEW.HEIGHT - 16, {
+      Painter.text(ctx, "↓ perfurar  •  ← → mover/cavar  •  ↑/Espaço jato  •  pegue petróleo 🛢️ e joias 💎  •  BASE reabastece", VIEW.WIDTH / 2, VIEW.HEIGHT - 16, {
         size: 12, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
       });
     }

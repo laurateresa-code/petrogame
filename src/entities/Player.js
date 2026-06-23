@@ -50,9 +50,7 @@ export class Player {
     // Recursos.
     this.fuel = FUEL.max;
     this.money = GameConfig.economy.startMoney;
-    this.cargo = 0;
-    this.cargoValue = 0;
-    this.cargoMax = 14;
+    this.collected = 0;  // total de itens valiosos coletados (estatística)
     this.maxDepth = 0;
 
     // Sinais para o HUD/efeitos (consumidos pelo PlayState).
@@ -123,11 +121,6 @@ export class Player {
 
   _startDig(col, row) {
     const def = blockDef(this.world.get(col, row));
-    // Carga cheia: não perfura recursos para não desperdiçá-los.
-    if (def.cargo && this.cargo >= this.cargoMax) {
-      this._setFlash("CARGA CHEIA — VENDA!", 1.4);
-      return false;
-    }
     this.digging = true;
     this._digTimer = 0;
     this._digDuration = def.hardness / GameConfig.player.drillSpeed;
@@ -140,10 +133,13 @@ export class Player {
       this.fuel = clamp(this.fuel + def.fuel, 0, FUEL.max);
       this._setFlash(`+${def.fuel} COMBUSTÍVEL`, 1.2);
     }
+    // Venda imediata: o item vira dinheiro no instante da coleta.
     if (def.cargo && def.value > 0) {
-      this.cargo += 1;
-      this.cargoValue += def.value;
+      this.money += def.value;
+      this.collected += 1;
+      this.justSold = def.value;   // dispara o efeito de venda (shake/flash)
       this.justCollected = true;
+      this._setFlash(`+$${def.value}`, 1.0);
     }
   }
 
@@ -225,15 +221,9 @@ export class Player {
     }
   }
 
-  // ---- Superfície: vende a carga e reabastece ---------------------------
+  // ---- Superfície: reabastece de graça na BASE --------------------------
   _dock() {
-    if (this.cargoValue > 0) {
-      this.money += this.cargoValue;
-      this.justSold = this.cargoValue;
-      this._setFlash(`VENDIDO +$${this.cargoValue}`, 1.8);
-      this.cargo = 0;
-      this.cargoValue = 0;
-    }
+    if (this.fuel < FUEL.max) this._setFlash("REABASTECIDO", 1.2);
     this.fuel = FUEL.max; // reabastecimento gratuito na base
   }
 
