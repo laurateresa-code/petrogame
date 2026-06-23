@@ -1,6 +1,6 @@
 /* =========================================================================
    Shop.js
-   Catálogo da LOJA: brocas, cenários e o detector de bombas. Cada item tem
+   Catálogo da LOJA: brocas e cenários. Cada item tem
    id, nome, descrição, preço e o efeito que aplica no jogo. Centralizar aqui
    facilita balancear preços e adicionar novos itens sem mexer na lógica.
    ========================================================================= */
@@ -21,14 +21,6 @@ export const SCENARIOS = Object.freeze([
   { id: "volcano", name: "Vulcânico", desc: "lava",   price: 1800,
     palette: { skyTop: "#2e0f0c", skyBottom: "#8a2f1a", bg: "#2a1109", groundLine: "#5e1c0c" } },
 ]);
-
-/** Detector de bombas: item único e mais caro; revela as bombas no mapa. */
-export const DETECTOR = Object.freeze({
-  id: "detector",
-  name: "Detector de Bombas",
-  desc: "revela onde as bombas estão escondidas",
-  price: 4000,
-});
 
 /** Acha um item por id com fallback no primeiro (padrão). */
 export const findDrill = (id) => DRILLS.find((d) => d.id === id) ?? DRILLS[0];

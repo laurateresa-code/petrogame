@@ -13,7 +13,7 @@
 import { State } from "./State.js";
 import { STATES, PALETTE, VIEW } from "../config/Constants.js";
 import { Painter, pointInRect } from "../ui/Painter.js";
-import { DRILLS, SCENARIOS, DETECTOR } from "../config/Shop.js";
+import { DRILLS, SCENARIOS } from "../config/Shop.js";
 
 export class ShopState extends State {
   enter(params = {}) {
@@ -45,11 +45,6 @@ export class ShopState extends State {
     SCENARIOS.forEach((s, i) => {
       this._cards.push({ kind: "scenario", data: s, rect: { x: rowX(i), y: 268, w: cardW, h: cardH } });
     });
-    // Detector (um cartão largo, centralizado).
-    this._cards.push({
-      kind: "detector", data: DETECTOR,
-      rect: { x: VIEW.WIDTH / 2 - 300, y: 418, w: 600, h: 78 },
-    });
 
     // Botão VOLTAR.
     this._backRect = { x: VIEW.WIDTH - 150, y: 28, w: 122, h: 40 };
@@ -64,8 +59,6 @@ export class ShopState extends State {
     } else if (card.kind === "scenario") {
       if (p.scenario === card.data.id) return "equipped";
       if (p.ownedScenarios.includes(card.data.id)) return "owned";
-    } else if (card.kind === "detector") {
-      if (p.bombDetector) return "equipped";
     }
     return p.money >= card.data.price ? "buyable" : "locked";
   }
@@ -82,11 +75,13 @@ export class ShopState extends State {
       if (card.kind === "drill") p.drill = card.data.id;
       else if (card.kind === "scenario") p.scenario = card.data.id;
       this.game.saveProfile();
+      this.game.audio.sfx("click");
       this._flash("EQUIPADO");
       return;
     }
 
     if (st === "locked") {
+      this.game.audio.sfx("click");
       this._flash("DINHEIRO INSUFICIENTE");
       return;
     }
@@ -99,10 +94,9 @@ export class ShopState extends State {
     } else if (card.kind === "scenario") {
       p.ownedScenarios.push(card.data.id);
       p.scenario = card.data.id;
-    } else if (card.kind === "detector") {
-      p.bombDetector = true;
     }
     this.game.saveProfile();
+    this.game.audio.sfx("buy");
     this._flash("COMPRADO!");
   }
 
@@ -156,7 +150,6 @@ export class ShopState extends State {
     // Cabeçalhos de seção.
     Painter.text(ctx, "BROCAS — velocidade de perfuração", 24, 104, { size: 15, color: PALETTE.TEXT, weight: "bold" });
     Painter.text(ctx, "CENÁRIOS — tema visual", 24, 254, { size: 15, color: PALETTE.TEXT, weight: "bold" });
-    Painter.text(ctx, "ESPECIAL", 24, 404, { size: 15, color: PALETTE.TEXT, weight: "bold" });
 
     for (const card of this._cards) this._renderCard(ctx, card);
 

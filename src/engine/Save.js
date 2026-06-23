@@ -2,7 +2,7 @@
    Save.js
    Persistência do PERFIL do jogador no LocalStorage. Guarda o dinheiro
    (que agora acumula entre partidas) e o que foi comprado na loja: brocas,
-   cenários e o detector de bombas. Falha de forma silenciosa se o navegador
+   e os cenários. Falha de forma silenciosa se o navegador
    bloquear o armazenamento (ex.: modo privativo).
    ========================================================================= */
 
@@ -16,7 +16,6 @@ function defaultProfile() {
     ownedDrills: ["iron"],
     scenario: "desert",
     ownedScenarios: ["desert"],
-    bombDetector: false,
   };
 }
 

@@ -104,12 +104,16 @@ export class PlayState extends State {
 
     this.player.update(dt, this.game.input);
 
+    const audio = this.game.audio;
     if (this.player.justSold > 0) {
       this.game.camera.shake(6);
       this.game.saveProfile(); // dinheiro acumula entre partidas
+      audio.sfx("coin");
     } else if (this.player.justCollected) {
       this.game.camera.shake(3);
     }
+    if (this.player.justFuel) audio.sfx("fuel");
+    if (this.player.justDug) audio.sfx("dig");
 
     // Câmera segue a sonda (ou a explosão).
     this.game.camera.follow(this.player.x, this.player.y, dt);
@@ -121,9 +125,11 @@ export class PlayState extends State {
         if (!this._explosion) {
           this._explosion = this._spawnExplosion(this.player.boomX, this.player.boomY);
           this.game.camera.shake(26);
+          audio.sfx("explosion");
         }
         if (this._explosion.t >= this._explosion.dur) this._over = "lose";
       } else {
+        if (!this._over) audio.sfx("death");
         this._over = "lose";
       }
     }
@@ -163,6 +169,7 @@ export class PlayState extends State {
   }
 
   _doPauseAction(id) {
+    this.game.audio.sfx("click");
     if (id === "play") this._paused = false;
     else if (id === "restart") this._newRun();
     else if (id === "shop") this._openShop();
@@ -259,7 +266,6 @@ export class PlayState extends State {
     const w = this.world;
     const t = TILE.SIZE;
     const pal = this._pal; // paleta do cenário equipado
-    const detector = this.game.profile.bombDetector;
 
     // Faixa de céu (gradiente) no topo do mundo.
     const sky = ctx.createLinearGradient(0, 0, 0, w.groundY);
@@ -301,8 +307,8 @@ export class PlayState extends State {
         } else if (id === BLOCK.FUEL) {
           ctx.fillStyle = "rgba(255,200,255,0.5)";
           ctx.fillRect(x + 9, y + 9, t - 18, t - 18);
-        } else if (id === BLOCK.BOMB && detector) {
-          // Detector de bombas: revela a bomba com um marcador pulsante.
+        } else if (id === BLOCK.BOMB) {
+          // Bombas são sempre visíveis: marcador vermelho pulsante.
           const pulse = 0.55 + 0.35 * Math.sin(this._time * 6);
           ctx.fillStyle = `rgba(224,75,75,${pulse.toFixed(3)})`;
           ctx.beginPath();

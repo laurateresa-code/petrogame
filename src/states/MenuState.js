@@ -33,12 +33,16 @@ export class MenuState extends State {
     for (const b of this._buttons) {
       if (pointInRect(mx, my, b.rect)) {
         this._hovered = b.id;
-        if (this.game.input.mouse.pressed) b.action();
+        if (this.game.input.mouse.pressed) {
+          this.game.audio.sfx("click");
+          b.action();
+        }
       }
     }
 
     // Atalho: Enter inicia o jogo.
     if (this.game.input.wasPressed("Enter")) {
+      this.game.audio.sfx("click");
       this.game.states.change(STATES.PLAY);
     }
   }
@@ -80,7 +84,7 @@ export class MenuState extends State {
       });
     }
 
-    Painter.text(ctx, "Pressione ENTER para jogar  •  F3 = debug", VIEW.WIDTH / 2, VIEW.HEIGHT - 24, {
+    Painter.text(ctx, "Pressione ENTER para jogar  •  M = mudo  •  F3 = debug", VIEW.WIDTH / 2, VIEW.HEIGHT - 24, {
       size: 13, color: PALETTE.TEXT_DIM, align: "center",
     });
   }

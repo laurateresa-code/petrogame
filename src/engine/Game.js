@@ -16,6 +16,7 @@ import { Time } from "./Time.js";
 import { Camera } from "./Camera.js";
 import { GameLoop } from "./GameLoop.js";
 import { Save } from "./Save.js";
+import { Audio } from "./Audio.js";
 import { StateMachine } from "../states/StateMachine.js";
 import { GameConfig } from "../config/GameConfig.js";
 import { STATES, PALETTE } from "../config/Constants.js";
@@ -36,6 +37,7 @@ export class Game {
     this.input = new Input(this.canvas);
     this.time = new Time();
     this.camera = new Camera();
+    this.audio = new Audio();
 
     // Flag global de depuração (alternável com F3).
     this.debug = GameConfig.debug;
@@ -80,6 +82,10 @@ export class Game {
     // Atalho global de depuração.
     if (this.input.wasPressed("F3")) {
       this.debug = !this.debug;
+    }
+    // Atalho global de mudo (M).
+    if (this.input.wasPressed("KeyM")) {
+      this.audio.toggleMute();
     }
 
     this.states.update(dt);

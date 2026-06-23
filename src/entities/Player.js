@@ -68,6 +68,8 @@ export class Player {
     this._flashTimer = 0;
     this.justSold = 0;        // valor vendido neste frame (para shake/efeito)
     this.justCollected = false;
+    this.justDug = false;     // quebrou um bloco neste frame (som de cavar)
+    this.justFuel = false;    // pegou combustível neste frame
   }
 
   _cellCenterX(col) { return col * TILE.SIZE + TILE.SIZE / 2; }
@@ -88,6 +90,8 @@ export class Player {
   update(dt, input) {
     this.justSold = 0;
     this.justCollected = false;
+    this.justDug = false;
+    this.justFuel = false;
     if (this._flashTimer > 0) {
       this._flashTimer -= dt;
       if (this._flashTimer <= 0) this.flash = "";
@@ -122,6 +126,7 @@ export class Player {
         return;
       }
 
+      this.justDug = true;
       this._collect(def);
       // Entra na célula recém-aberta.
       this._beginMove(col, row, false);
@@ -141,6 +146,7 @@ export class Player {
     if (def.fuel > 0) {
       this.fuel = clamp(this.fuel + def.fuel, 0, FUEL.max);
       this._setFlash(`+${def.fuel} COMBUSTÍVEL`, 1.2);
+      this.justFuel = true;
     }
     // Venda imediata: o item vira dinheiro no instante da coleta.
     if (def.cargo && def.value > 0) {
