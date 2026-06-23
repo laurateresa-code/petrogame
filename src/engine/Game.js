@@ -28,6 +28,7 @@ import { BootState } from "../states/BootState.js";
 import { MenuState } from "../states/MenuState.js";
 import { PlayState } from "../states/PlayState.js";
 import { ShopState } from "../states/ShopState.js";
+import { HowToState } from "../states/HowToState.js";
 
 export class Game {
   constructor(canvasId) {
@@ -62,7 +63,8 @@ export class Game {
       .register(STATES.BOOT, new BootState(this))
       .register(STATES.MENU, new MenuState(this))
       .register(STATES.PLAY, new PlayState(this))
-      .register(STATES.SHOP, new ShopState(this));
+      .register(STATES.SHOP, new ShopState(this))
+      .register(STATES.TUTORIAL, new HowToState(this));
     // Demais estados (Pause, GameOver...) serão registrados nas etapas
     // correspondentes, sem alterar o que já existe.
   }

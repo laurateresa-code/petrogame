@@ -23,7 +23,7 @@ import { findDrill, findScenario } from "../config/Shop.js";
 
 export class PlayState extends State {
   enter(params = {}) {
-    this._buildPauseButtons();
+    this._buildMenuButtons();
 
     // Retomada após visitar a LOJA: mantém a partida e reaplica os upgrades.
     if (params.resume && this.world) {
@@ -37,15 +37,18 @@ export class PlayState extends State {
     this._newRun();
   }
 
-  /** Cria os três botões do menu lateral (posições fixas). */
-  _buildPauseButtons() {
-    const x = 20, w = 160, h = 44, gap = 34, startY = 150;
-    this._pauseButtons = [
-      { id: "play", label: "PLAY", hint: "ESC" },
+  /** Largura do menu lateral fixo (à esquerda da tela). */
+  static SIDEBAR_W = 168;
+
+  /** Cria os três botões do menu lateral (sempre visível à esquerda). */
+  _buildMenuButtons() {
+    const x = 14, w = 140, h = 44, gap = 26, startY = 130;
+    this._menuButtons = [
+      { id: "play", hint: "ESC" },     // rótulo dinâmico: PLAY / PAUSE
       { id: "restart", label: "RESTART", hint: "R" },
       { id: "shop", label: "LOJA", hint: "L" },
     ].map((b, i) => ({ ...b, rect: { x, y: startY + i * (h + gap), w, h } }));
-    this._pauseHover = null;
+    this._menuHover = null;
   }
 
   _newRun() {
@@ -88,19 +91,17 @@ export class PlayState extends State {
       return;
     }
 
-    // --- Atalhos do menu lateral (funcionam pausado ou em jogo) ---
+    // --- Menu lateral (sempre ativo): hover + clique nos 3 botões ---
+    this._handleMenuClicks();
+
+    // --- Atalhos do menu (funcionam pausado ou em jogo) ---
     if (input.wasPressed("KeyR")) { this._newRun(); return; }
     if (input.wasPressed("KeyL")) { this._openShop(); return; }
-    if (input.wasPressed("Escape") || input.wasPressed("KeyP")) {
-      this._paused = !this._paused;
-    }
+    if (input.wasPressed("Escape") || input.wasPressed("KeyP")) this._togglePause();
+    if (this._paused && input.wasPressed("Enter")) this._paused = false;
 
-    // --- Pausado: congela o jogo e processa o menu lateral ---
-    if (this._paused) {
-      if (input.wasPressed("Enter")) this._paused = false;
-      this._handlePauseClicks();
-      return;
-    }
+    // --- Pausado: congela o jogo (o menu lateral continua na tela) ---
+    if (this._paused) return;
 
     this.player.update(dt, this.game.input);
 
@@ -156,21 +157,25 @@ export class PlayState extends State {
     this.game.states.change(STATES.SHOP, { from: STATES.PLAY });
   }
 
+  _togglePause() {
+    this._paused = !this._paused;
+  }
+
   /** Detecta hover e clique nos botões do menu lateral. */
-  _handlePauseClicks() {
+  _handleMenuClicks() {
     const { x: mx, y: my } = this.game.input.mouse;
-    this._pauseHover = null;
-    for (const b of this._pauseButtons) {
+    this._menuHover = null;
+    for (const b of this._menuButtons) {
       if (pointInRect(mx, my, b.rect)) {
-        this._pauseHover = b.id;
-        if (this.game.input.mouse.pressed) this._doPauseAction(b.id);
+        this._menuHover = b.id;
+        if (this.game.input.mouse.pressed) this._doMenuAction(b.id);
       }
     }
   }
 
-  _doPauseAction(id) {
+  _doMenuAction(id) {
     this.game.audio.sfx("click");
-    if (id === "play") this._paused = false;
+    if (id === "play") this._togglePause();      // PLAY/PAUSE alterna o pause
     else if (id === "restart") this._newRun();
     else if (id === "shop") this._openShop();
   }
@@ -185,38 +190,45 @@ export class PlayState extends State {
     cam.reset(ctx);
 
     this._renderHud(ctx);
-    if (this._paused) this._renderPauseMenu(ctx);
+    this._renderSideMenu(ctx);
     if (this._over) this._renderOverlay(ctx);
   }
 
-  /** Menu lateral esquerdo (pause): PLAY, RESTART e LOJA. */
-  _renderPauseMenu(ctx) {
-    const panelW = 200;
+  /** Menu lateral esquerdo SEMPRE visível: PLAY/PAUSE, RESTART e LOJA. */
+  _renderSideMenu(ctx) {
+    const panelW = PlayState.SIDEBAR_W;
 
-    // Escurece o jogo ao fundo e desenha o painel lateral.
-    ctx.fillStyle = "rgba(0,0,0,0.5)";
-    ctx.fillRect(0, 0, VIEW.WIDTH, VIEW.HEIGHT);
-    ctx.fillStyle = "rgba(12,9,6,0.96)";
+    // Se pausado, escurece a área de jogo (à direita do menu).
+    if (this._paused) {
+      ctx.fillStyle = "rgba(0,0,0,0.45)";
+      ctx.fillRect(panelW, 0, VIEW.WIDTH - panelW, VIEW.HEIGHT);
+      Painter.text(ctx, "PAUSADO", (panelW + VIEW.WIDTH) / 2, 40, {
+        size: 22, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
+      });
+    }
+
+    // Painel lateral.
+    ctx.fillStyle = "rgba(12,9,6,0.92)";
     ctx.fillRect(0, 0, panelW, VIEW.HEIGHT);
     ctx.fillStyle = PALETTE.ACCENT_DARK;
     ctx.fillRect(panelW - 3, 0, 3, VIEW.HEIGHT);
 
-    Painter.text(ctx, "PAUSA", panelW / 2, 72, {
-      size: 30, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
-    });
-    Painter.text(ctx, `$ ${this.game.profile.money}`, panelW / 2, 104, {
-      size: 18, color: PALETTE.OK, align: "center", baseline: "middle", weight: "bold",
+    Painter.text(ctx, "MENU", panelW / 2, 56, {
+      size: 26, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
     });
 
-    for (const b of this._pauseButtons) {
+    for (const b of this._menuButtons) {
       const { x, y, w, h } = b.rect;
-      Painter.button(ctx, b.label, x, y, w, h, { hovered: this._pauseHover === b.id, size: 18 });
-      Painter.text(ctx, `atalho: ${b.hint}`, x + w / 2, y + h + 12, {
+      // O primeiro botão alterna entre PLAY (retomar) e PAUSE.
+      const label = b.id === "play" ? (this._paused ? "▶ PLAY" : "❚❚ PAUSE") : b.label;
+      const hovered = this._menuHover === b.id || (b.id === "play" && this._paused);
+      Painter.button(ctx, label, x, y, w, h, { hovered, size: 17 });
+      Painter.text(ctx, `[ ${b.hint} ]`, x + w / 2, y + h + 11, {
         size: 11, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
       });
     }
 
-    Painter.text(ctx, "ESC retoma o jogo", panelW / 2, VIEW.HEIGHT - 24, {
+    Painter.text(ctx, "M = mudo", panelW / 2, VIEW.HEIGHT - 22, {
       size: 12, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
     });
   }
@@ -354,15 +366,16 @@ export class PlayState extends State {
   _renderHud(ctx) {
     const p = this.player;
 
-    // Painel superior-esquerdo: combustível + itens coletados.
-    Painter.panel(ctx, 12, 12, 230, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });
+    // Painel de combustível + coletados (à direita do menu lateral fixo).
+    const hx = PlayState.SIDEBAR_W + 12; // começa após o menu lateral
+    Painter.panel(ctx, hx, 12, 230, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });
 
-    Painter.text(ctx, "COMBUSTÍVEL", 24, 30, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
+    Painter.text(ctx, "COMBUSTÍVEL", hx + 12, 30, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
     const fuelRatio = p.fuel / GameConfig.fuel.max;
     const fuelColor = fuelRatio > 0.3 ? PALETTE.OK : PALETTE.DANGER;
-    Painter.bar(ctx, 24, 38, 206, 12, fuelRatio, { fill: fuelColor, bg: "#2a2620" });
+    Painter.bar(ctx, hx + 12, 38, 206, 12, fuelRatio, { fill: fuelColor, bg: "#2a2620" });
 
-    Painter.text(ctx, `tesouros coletados: ${p.collected}`, 24, 66, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
+    Painter.text(ctx, `tesouros coletados: ${p.collected}`, hx + 12, 66, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
 
     // Painel superior-direito: dinheiro + profundidade.
     Painter.panel(ctx, VIEW.WIDTH - 222, 12, 210, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });
