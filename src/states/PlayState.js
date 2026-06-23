@@ -37,17 +37,19 @@ export class PlayState extends State {
     this._newRun();
   }
 
-  /** Largura do menu lateral fixo (à esquerda da tela). */
-  static SIDEBAR_W = 168;
-
-  /** Cria os três botões do menu lateral (sempre visível à esquerda). */
+  /**
+   * Botão "hambúrguer" (☰) no canto e os três ícones centrais (recomeçar,
+   * play e loja) que aparecem quando o jogo está pausado.
+   */
   _buildMenuButtons() {
-    const x = 14, w = 140, h = 44, gap = 26, startY = 130;
-    this._menuButtons = [
-      { id: "play", hint: "ESC" },     // rótulo dinâmico: PLAY / PAUSE
-      { id: "restart", label: "RESTART", hint: "R" },
-      { id: "shop", label: "LOJA", hint: "L" },
-    ].map((b, i) => ({ ...b, rect: { x, y: startY + i * (h + gap), w, h } }));
+    this._hamburger = { x: 14, y: 14, w: 42, h: 42 };
+
+    const r = 40, cy = VIEW.HEIGHT / 2, dx = 132, cx = VIEW.WIDTH / 2;
+    this._iconButtons = [
+      { id: "restart", cx: cx - dx, cy, r, label: "RECOMEÇAR" },
+      { id: "play", cx, cy, r, label: "CONTINUAR" },
+      { id: "shop", cx: cx + dx, cy, r, label: "LOJA" },
+    ];
     this._menuHover = null;
   }
 
@@ -161,21 +163,33 @@ export class PlayState extends State {
     this._paused = !this._paused;
   }
 
-  /** Detecta hover e clique nos botões do menu lateral. */
+  /** Hover/clique no hambúrguer e nos ícones centrais (estes só pausado). */
   _handleMenuClicks() {
     const { x: mx, y: my } = this.game.input.mouse;
+    const pressed = this.game.input.mouse.pressed;
     this._menuHover = null;
-    for (const b of this._menuButtons) {
-      if (pointInRect(mx, my, b.rect)) {
-        this._menuHover = b.id;
-        if (this.game.input.mouse.pressed) this._doMenuAction(b.id);
+
+    // Hambúrguer: abre/fecha o pause.
+    if (pointInRect(mx, my, this._hamburger)) {
+      this._menuHover = "menu";
+      if (pressed) { this.game.audio.sfx("click"); this._togglePause(); }
+      return;
+    }
+
+    // Ícones centrais só respondem com o jogo pausado.
+    if (this._paused) {
+      for (const b of this._iconButtons) {
+        if (Math.hypot(mx - b.cx, my - b.cy) <= b.r) {
+          this._menuHover = b.id;
+          if (pressed) this._doMenuAction(b.id);
+        }
       }
     }
   }
 
   _doMenuAction(id) {
     this.game.audio.sfx("click");
-    if (id === "play") this._togglePause();      // PLAY/PAUSE alterna o pause
+    if (id === "play") this._paused = false;     // play = continuar
     else if (id === "restart") this._newRun();
     else if (id === "shop") this._openShop();
   }
@@ -190,47 +204,114 @@ export class PlayState extends State {
     cam.reset(ctx);
 
     this._renderHud(ctx);
-    this._renderSideMenu(ctx);
+    this._renderMenu(ctx);
     if (this._over) this._renderOverlay(ctx);
   }
 
-  /** Menu lateral esquerdo SEMPRE visível: PLAY/PAUSE, RESTART e LOJA. */
-  _renderSideMenu(ctx) {
-    const panelW = PlayState.SIDEBAR_W;
-
-    // Se pausado, escurece a área de jogo (à direita do menu).
+  /** Hambúrguer (sempre) e, quando pausado, os três ícones centrais. */
+  _renderMenu(ctx) {
     if (this._paused) {
-      ctx.fillStyle = "rgba(0,0,0,0.45)";
-      ctx.fillRect(panelW, 0, VIEW.WIDTH - panelW, VIEW.HEIGHT);
-      Painter.text(ctx, "PAUSADO", (panelW + VIEW.WIDTH) / 2, 40, {
-        size: 22, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
+      // Escurece tudo e mostra os três ícones centralizados.
+      ctx.fillStyle = "rgba(0,0,0,0.62)";
+      ctx.fillRect(0, 0, VIEW.WIDTH, VIEW.HEIGHT);
+      Painter.text(ctx, "PAUSADO", VIEW.WIDTH / 2, VIEW.HEIGHT / 2 - 92, {
+        size: 26, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
+      });
+      for (const b of this._iconButtons) this._renderIconButton(ctx, b);
+      Painter.text(ctx, "ESC retoma  •  M = mudo", VIEW.WIDTH / 2, VIEW.HEIGHT / 2 + 96, {
+        size: 13, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
       });
     }
 
-    // Painel lateral.
-    ctx.fillStyle = "rgba(12,9,6,0.92)";
-    ctx.fillRect(0, 0, panelW, VIEW.HEIGHT);
-    ctx.fillStyle = PALETTE.ACCENT_DARK;
-    ctx.fillRect(panelW - 3, 0, 3, VIEW.HEIGHT);
+    this._renderHamburger(ctx);
+  }
 
-    Painter.text(ctx, "MENU", panelW / 2, 56, {
-      size: 26, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
+  _renderHamburger(ctx) {
+    const h = this._hamburger;
+    const hov = this._menuHover === "menu";
+    Painter.panel(ctx, h.x, h.y, h.w, h.h, {
+      fill: hov ? PALETTE.ACCENT : "rgba(0,0,0,0.55)", stroke: PALETTE.ACCENT_DARK, radius: 8,
     });
-
-    for (const b of this._menuButtons) {
-      const { x, y, w, h } = b.rect;
-      // O primeiro botão alterna entre PLAY (retomar) e PAUSE.
-      const label = b.id === "play" ? (this._paused ? "▶ PLAY" : "❚❚ PAUSE") : b.label;
-      const hovered = this._menuHover === b.id || (b.id === "play" && this._paused);
-      Painter.button(ctx, label, x, y, w, h, { hovered, size: 17 });
-      Painter.text(ctx, `[ ${b.hint} ]`, x + w / 2, y + h + 11, {
-        size: 11, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
-      });
+    // Três linhas empilhadas.
+    const color = hov ? PALETTE.PANEL : PALETTE.TEXT;
+    const lw = h.w * 0.5, lh = 3, lx = h.x + (h.w - lw) / 2;
+    ctx.fillStyle = color;
+    for (let i = 0; i < 3; i++) {
+      ctx.fillRect(lx, h.y + h.h * 0.3 + i * (h.h * 0.2), lw, lh);
     }
+  }
 
-    Painter.text(ctx, "M = mudo", panelW / 2, VIEW.HEIGHT - 22, {
-      size: 12, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
+  _renderIconButton(ctx, b) {
+    const hov = this._menuHover === b.id;
+    ctx.beginPath();
+    ctx.arc(b.cx, b.cy, b.r, 0, Math.PI * 2);
+    ctx.fillStyle = hov ? PALETTE.ACCENT : PALETTE.PANEL_LIGHT;
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = hov ? PALETTE.ACCENT : PALETTE.ACCENT_DARK;
+    ctx.stroke();
+
+    const ic = hov ? PALETTE.PANEL : PALETTE.TEXT;
+    const s = b.r * 0.5;
+    if (b.id === "restart") this._drawRestartIcon(ctx, b.cx, b.cy, s, ic);
+    else if (b.id === "play") this._drawPlayIcon(ctx, b.cx, b.cy, s, ic);
+    else if (b.id === "shop") this._drawShopIcon(ctx, b.cx, b.cy, s, ic);
+
+    Painter.text(ctx, b.label, b.cx, b.cy + b.r + 18, {
+      size: 12, color: PALETTE.TEXT, align: "center", baseline: "middle", weight: "bold",
     });
+  }
+
+  /** Ícone de play: triângulo apontando para a direita. */
+  _drawPlayIcon(ctx, cx, cy, s, color) {
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(cx - s * 0.55, cy - s * 0.75);
+    ctx.lineTo(cx - s * 0.55, cy + s * 0.75);
+    ctx.lineTo(cx + s * 0.8, cy);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  /** Ícone de recomeçar: seta circular. */
+  _drawRestartIcon(ctx, cx, cy, s, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(2.5, s * 0.32);
+    ctx.lineCap = "round";
+    const a0 = -Math.PI * 0.32, a1 = Math.PI * 1.2;
+    ctx.beginPath();
+    ctx.arc(cx, cy, s, a0, a1);
+    ctx.stroke();
+    // Ponta de seta no início do arco.
+    const hx = cx + Math.cos(a0) * s, hy = cy + Math.sin(a0) * s;
+    const hd = s * 0.6;
+    ctx.beginPath();
+    ctx.moveTo(hx + hd * 0.15, hy - hd * 0.55);
+    ctx.lineTo(hx + hd * 0.7, hy + hd * 0.15);
+    ctx.lineTo(hx - hd * 0.25, hy + hd * 0.2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /** Ícone da loja: sacola de compras. */
+  _drawShopIcon(ctx, cx, cy, s, color) {
+    ctx.save();
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(2, s * 0.18);
+    const w = s * 1.4, h = s * 1.5;
+    const x = cx - w / 2, y = cy - h / 2 + s * 0.25;
+    // Alça (semicírculo no topo).
+    ctx.beginPath();
+    ctx.arc(cx, y, s * 0.45, Math.PI, 2 * Math.PI);
+    ctx.stroke();
+    // Corpo da sacola.
+    Painter.roundRect(ctx, x, y, w, h, s * 0.2);
+    ctx.fill();
+    ctx.restore();
   }
 
   /** Desenha a explosão (clarão + anel de choque + estilhaços) no mundo. */
@@ -366,8 +447,8 @@ export class PlayState extends State {
   _renderHud(ctx) {
     const p = this.player;
 
-    // Painel de combustível + coletados (à direita do menu lateral fixo).
-    const hx = PlayState.SIDEBAR_W + 12; // começa após o menu lateral
+    // Painel de combustível + coletados (à direita do botão de menu ☰).
+    const hx = this._hamburger.x + this._hamburger.w + 12;
     Painter.panel(ctx, hx, 12, 230, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });
 
     Painter.text(ctx, "COMBUSTÍVEL", hx + 12, 30, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
