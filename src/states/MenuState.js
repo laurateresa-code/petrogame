@@ -17,7 +17,7 @@ export class MenuState extends State {
     const w = 240, h = 52, gap = 14, startY = 250;
     this._buttons = [
       { id: "play", label: "JOGAR", action: () => this.game.states.change(STATES.PLAY) },
-      { id: "settings", label: "CONFIGURAÇÕES", action: () => {} },
+      { id: "shop", label: "LOJA", action: () => this.game.states.change(STATES.SHOP) },
       { id: "credits", label: "CRÉDITOS", action: () => {} },
     ].map((b, i) => ({
       ...b,
@@ -60,6 +60,9 @@ export class MenuState extends State {
     });
     Painter.text(ctx, "explore • perfure • enriqueça", VIEW.WIDTH / 2, 195, {
       size: 18, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
+    });
+    Painter.text(ctx, `$ ${this.game.profile.money}`, VIEW.WIDTH / 2, 222, {
+      size: 18, color: PALETTE.OK, align: "center", baseline: "middle", weight: "bold",
     });
 
     // Botões.

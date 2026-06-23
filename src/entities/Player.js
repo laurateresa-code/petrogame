@@ -21,8 +21,15 @@ import { clamp } from "../utils/MathUtils.js";
 const FUEL = GameConfig.fuel;
 
 export class Player {
-  constructor(world, col, row) {
+  /**
+   * @param {object} opts
+   * @param {object} opts.profile    perfil persistente (dono do dinheiro)
+   * @param {number} opts.drillSpeed multiplicador da broca equipada
+   */
+  constructor(world, col, row, { profile, drillSpeed = 1 } = {}) {
     this.world = world;
+    this.profile = profile;
+    this.drillSpeed = drillSpeed;
     this.size = TILE.SIZE - 6; // um pouco menor que a célula
 
     // Posição lógica (célula) e posição em pixels (centro, para render/câmera).
@@ -47,9 +54,8 @@ export class Player {
     this.facing = 0;
     this.drillDir = "down";
 
-    // Recursos.
+    // Recursos. O dinheiro vive no perfil persistente (ver get money()).
     this.fuel = FUEL.max;
-    this.money = GameConfig.economy.startMoney;
     this.collected = 0;  // total de itens valiosos coletados (estatística)
     this.maxDepth = 0;
 
@@ -66,6 +72,9 @@ export class Player {
 
   _cellCenterX(col) { return col * TILE.SIZE + TILE.SIZE / 2; }
   _cellCenterY(row) { return row * TILE.SIZE + TILE.SIZE / 2; }
+
+  /** Dinheiro do jogador (delegado ao perfil persistente). */
+  get money() { return this.profile.money; }
 
   get atSurface() { return this.row <= this.world.surfaceRows - 1; }
   get depthMeters() { return Math.max(0, this.row - this.world.surfaceRows + 1); }
@@ -123,7 +132,7 @@ export class Player {
     const def = blockDef(this.world.get(col, row));
     this.digging = true;
     this._digTimer = 0;
-    this._digDuration = def.hardness / GameConfig.player.drillSpeed;
+    this._digDuration = def.hardness / this.drillSpeed;
     this._digTarget = { col, row };
     return true;
   }
@@ -135,7 +144,7 @@ export class Player {
     }
     // Venda imediata: o item vira dinheiro no instante da coleta.
     if (def.cargo && def.value > 0) {
-      this.money += def.value;
+      this.profile.money += def.value;
       this.collected += 1;
       this.justSold = def.value;   // dispara o efeito de venda (shake/flash)
       this.justCollected = true;

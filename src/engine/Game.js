@@ -15,6 +15,7 @@ import { Input } from "./Input.js";
 import { Time } from "./Time.js";
 import { Camera } from "./Camera.js";
 import { GameLoop } from "./GameLoop.js";
+import { Save } from "./Save.js";
 import { StateMachine } from "../states/StateMachine.js";
 import { GameConfig } from "../config/GameConfig.js";
 import { STATES, PALETTE } from "../config/Constants.js";
@@ -25,6 +26,7 @@ import { Painter } from "../ui/Painter.js";
 import { BootState } from "../states/BootState.js";
 import { MenuState } from "../states/MenuState.js";
 import { PlayState } from "../states/PlayState.js";
+import { ShopState } from "../states/ShopState.js";
 
 export class Game {
   constructor(canvasId) {
@@ -37,6 +39,9 @@ export class Game {
 
     // Flag global de depuração (alternável com F3).
     this.debug = GameConfig.debug;
+
+    // --- Perfil persistente (dinheiro + itens comprados na loja) ---
+    this.profile = Save.load();
 
     // --- Estados ---
     this.states = new StateMachine();
@@ -54,9 +59,15 @@ export class Game {
     this.states
       .register(STATES.BOOT, new BootState(this))
       .register(STATES.MENU, new MenuState(this))
-      .register(STATES.PLAY, new PlayState(this));
-    // Demais estados (Pause, Shop, GameOver...) serão registrados nas
-    // etapas correspondentes, sem alterar o que já existe.
+      .register(STATES.PLAY, new PlayState(this))
+      .register(STATES.SHOP, new ShopState(this));
+    // Demais estados (Pause, GameOver...) serão registrados nas etapas
+    // correspondentes, sem alterar o que já existe.
+  }
+
+  /** Persiste o perfil atual no LocalStorage. */
+  saveProfile() {
+    Save.save(this.profile);
   }
 
   /** Inicia o jogo no estado BOOT. */

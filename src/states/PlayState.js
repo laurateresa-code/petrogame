@@ -1,9 +1,9 @@
 /* =========================================================================
    PlayState.js
    Estado de JOGO. Monta o mundo (subsolo), a sonda do jogador e o HUD, e
-   coordena câmera, perfuração e economia. Objetivo: cavar, achar petróleo e
-   esmeraldas, voltar à superfície para vender/reabastecer e atingir a META —
-   sem ficar sem combustível lá no fundo.
+   coordena câmera, perfuração e economia. Aplica os itens comprados na loja
+   (broca equipada, cenário) e ganha dinheiro coletando petróleo/esmeraldas —
+   sem ficar sem combustível lá no fundo (ou pisar numa bomba).
 
    Controles:
      ← →  (A/D)        mover / perfurar para os lados
@@ -14,25 +14,53 @@
 
 import { State } from "./State.js";
 import { STATES, PALETTE, VIEW, TILE } from "../config/Constants.js";
-import { Painter } from "../ui/Painter.js";
+import { Painter, pointInRect } from "../ui/Painter.js";
 import { World } from "../world/World.js";
 import { Player } from "../entities/Player.js";
 import { BLOCK, blockDef } from "../world/BlockTypes.js";
 import { GameConfig } from "../config/GameConfig.js";
-
-const META = 4000; // dinheiro para vencer
+import { findDrill, findScenario } from "../config/Shop.js";
 
 export class PlayState extends State {
-  enter() {
+  enter(params = {}) {
+    this._buildPauseButtons();
+
+    // Retomada após visitar a LOJA: mantém a partida e reaplica os upgrades.
+    if (params.resume && this.world) {
+      this.player.drillSpeed = findDrill(this.game.profile.drill).drillSpeed;
+      this._pal = findScenario(this.game.profile.scenario).palette;
+      this.game.camera.setBounds(this.world.bounds);
+      this._paused = true;
+      return;
+    }
+
     this._newRun();
+  }
+
+  /** Cria os três botões do menu lateral (posições fixas). */
+  _buildPauseButtons() {
+    const x = 20, w = 160, h = 44, gap = 34, startY = 150;
+    this._pauseButtons = [
+      { id: "play", label: "PLAY", hint: "ESC" },
+      { id: "restart", label: "RESTART", hint: "R" },
+      { id: "shop", label: "LOJA", hint: "L" },
+    ].map((b, i) => ({ ...b, rect: { x, y: startY + i * (h + gap), w, h } }));
+    this._pauseHover = null;
   }
 
   _newRun() {
     this.world = new World({ cols: 30, rows: 140, surfaceRows: 3 }).generate();
 
+    // Itens equipados (loja): broca define a velocidade; cenário, a paleta.
+    const drill = findDrill(this.game.profile.drill);
+    this._pal = findScenario(this.game.profile.scenario).palette;
+
     const col = this.world.randomSurfaceColumn();
     const row = this.world.surfaceRows - 1; // sobre o solo
-    this.player = new Player(this.world, col, row);
+    this.player = new Player(this.world, col, row, {
+      profile: this.game.profile,
+      drillSpeed: drill.drillSpeed,
+    });
 
     this.game.camera.setBounds(this.world.bounds);
     // Centraliza a câmera imediatamente (sem deslize no primeiro frame).
@@ -42,36 +70,49 @@ export class PlayState extends State {
 
     this._over = null;      // null | "win" | "lose"
     this._explosion = null; // efeito ativo de explosão (bomba)
+    this._paused = false;
     this._time = 0;
   }
 
   update(dt) {
     this._time += dt;
-
-    if (this.game.input.wasPressed("Escape")) {
-      this.game.states.change(STATES.MENU);
-      return;
-    }
+    const input = this.game.input;
 
     // A explosão roda mesmo após a morte (para ser vista antes do overlay).
     if (this._explosion) this._explosion.t += dt;
 
-    // Fim de jogo: aguarda R (reiniciar) ou ESC (já tratado acima).
+    // Fim de jogo: R reinicia, ESC volta ao menu.
     if (this._over) {
-      if (this.game.input.wasPressed("KeyR")) this._newRun();
+      if (input.wasPressed("KeyR")) this._newRun();
+      if (input.wasPressed("Escape")) this.game.states.change(STATES.MENU);
+      return;
+    }
+
+    // --- Atalhos do menu lateral (funcionam pausado ou em jogo) ---
+    if (input.wasPressed("KeyR")) { this._newRun(); return; }
+    if (input.wasPressed("KeyL")) { this._openShop(); return; }
+    if (input.wasPressed("Escape") || input.wasPressed("KeyP")) {
+      this._paused = !this._paused;
+    }
+
+    // --- Pausado: congela o jogo e processa o menu lateral ---
+    if (this._paused) {
+      if (input.wasPressed("Enter")) this._paused = false;
+      this._handlePauseClicks();
       return;
     }
 
     this.player.update(dt, this.game.input);
 
-    if (this.player.justSold > 0) this.game.camera.shake(6);
-    if (this.player.justCollected) this.game.camera.shake(3);
+    if (this.player.justSold > 0) {
+      this.game.camera.shake(6);
+      this.game.saveProfile(); // dinheiro acumula entre partidas
+    } else if (this.player.justCollected) {
+      this.game.camera.shake(3);
+    }
 
     // Câmera segue a sonda (ou a explosão).
     this.game.camera.follow(this.player.x, this.player.y, dt);
-
-    // Vitória.
-    if (this.player.money >= META) { this._over = "win"; return; }
 
     // Derrota.
     if (this.player.dead) {
@@ -102,6 +143,31 @@ export class PlayState extends State {
     return { x, y, t: 0, dur: 0.95, parts };
   }
 
+  // ---- Menu lateral / pause --------------------------------------------
+  /** Abre a LOJA sem perder a partida (volta para cá pausado). */
+  _openShop() {
+    this._paused = true;
+    this.game.states.change(STATES.SHOP, { from: STATES.PLAY });
+  }
+
+  /** Detecta hover e clique nos botões do menu lateral. */
+  _handlePauseClicks() {
+    const { x: mx, y: my } = this.game.input.mouse;
+    this._pauseHover = null;
+    for (const b of this._pauseButtons) {
+      if (pointInRect(mx, my, b.rect)) {
+        this._pauseHover = b.id;
+        if (this.game.input.mouse.pressed) this._doPauseAction(b.id);
+      }
+    }
+  }
+
+  _doPauseAction(id) {
+    if (id === "play") this._paused = false;
+    else if (id === "restart") this._newRun();
+    else if (id === "shop") this._openShop();
+  }
+
   render(ctx) {
     const cam = this.game.camera;
     cam.apply(ctx);
@@ -112,7 +178,40 @@ export class PlayState extends State {
     cam.reset(ctx);
 
     this._renderHud(ctx);
+    if (this._paused) this._renderPauseMenu(ctx);
     if (this._over) this._renderOverlay(ctx);
+  }
+
+  /** Menu lateral esquerdo (pause): PLAY, RESTART e LOJA. */
+  _renderPauseMenu(ctx) {
+    const panelW = 200;
+
+    // Escurece o jogo ao fundo e desenha o painel lateral.
+    ctx.fillStyle = "rgba(0,0,0,0.5)";
+    ctx.fillRect(0, 0, VIEW.WIDTH, VIEW.HEIGHT);
+    ctx.fillStyle = "rgba(12,9,6,0.96)";
+    ctx.fillRect(0, 0, panelW, VIEW.HEIGHT);
+    ctx.fillStyle = PALETTE.ACCENT_DARK;
+    ctx.fillRect(panelW - 3, 0, 3, VIEW.HEIGHT);
+
+    Painter.text(ctx, "PAUSA", panelW / 2, 72, {
+      size: 30, color: PALETTE.ACCENT, align: "center", baseline: "middle", weight: "bold", shadow: true,
+    });
+    Painter.text(ctx, `$ ${this.game.profile.money}`, panelW / 2, 104, {
+      size: 18, color: PALETTE.OK, align: "center", baseline: "middle", weight: "bold",
+    });
+
+    for (const b of this._pauseButtons) {
+      const { x, y, w, h } = b.rect;
+      Painter.button(ctx, b.label, x, y, w, h, { hovered: this._pauseHover === b.id, size: 18 });
+      Painter.text(ctx, `atalho: ${b.hint}`, x + w / 2, y + h + 12, {
+        size: 11, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
+      });
+    }
+
+    Painter.text(ctx, "ESC retoma o jogo", panelW / 2, VIEW.HEIGHT - 24, {
+      size: 12, color: PALETTE.TEXT_DIM, align: "center", baseline: "middle",
+    });
   }
 
   /** Desenha a explosão (clarão + anel de choque + estilhaços) no mundo. */
@@ -159,16 +258,18 @@ export class PlayState extends State {
   _renderWorld(ctx, cam) {
     const w = this.world;
     const t = TILE.SIZE;
+    const pal = this._pal; // paleta do cenário equipado
+    const detector = this.game.profile.bombDetector;
 
     // Faixa de céu (gradiente) no topo do mundo.
     const sky = ctx.createLinearGradient(0, 0, 0, w.groundY);
-    sky.addColorStop(0, PALETTE.SKY_TOP);
-    sky.addColorStop(1, PALETTE.SKY_BOTTOM);
+    sky.addColorStop(0, pal.skyTop);
+    sky.addColorStop(1, pal.skyBottom);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, w.width, w.groundY);
 
     // Subsolo (fundo escuro — túneis mostram esta cor).
-    ctx.fillStyle = "#241910";
+    ctx.fillStyle = pal.bg;
     ctx.fillRect(0, w.groundY, w.width, w.height - w.groundY);
 
     // Base/estação na superfície (na coluna de partida, decorativa).
@@ -200,6 +301,16 @@ export class PlayState extends State {
         } else if (id === BLOCK.FUEL) {
           ctx.fillStyle = "rgba(255,200,255,0.5)";
           ctx.fillRect(x + 9, y + 9, t - 18, t - 18);
+        } else if (id === BLOCK.BOMB && detector) {
+          // Detector de bombas: revela a bomba com um marcador pulsante.
+          const pulse = 0.55 + 0.35 * Math.sin(this._time * 6);
+          ctx.fillStyle = `rgba(224,75,75,${pulse.toFixed(3)})`;
+          ctx.beginPath();
+          ctx.arc(x + t / 2, y + t / 2, t * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+          Painter.text(ctx, "!", x + t / 2, y + t / 2 + 1, {
+            size: 16, color: "#fff", align: "center", baseline: "middle", weight: "bold",
+          });
         }
 
         // Sombreamento sutil nas bordas (leitura de relevo).
@@ -210,7 +321,7 @@ export class PlayState extends State {
     }
 
     // Linha do solo.
-    ctx.fillStyle = PALETTE.GROUND_LINE;
+    ctx.fillStyle = pal.groundLine;
     ctx.fillRect(0, w.groundY - 3, w.width, 6);
   }
 
@@ -247,15 +358,12 @@ export class PlayState extends State {
 
     Painter.text(ctx, `tesouros coletados: ${p.collected}`, 24, 66, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
 
-    // Painel superior-direito: dinheiro + meta + profundidade.
-    Painter.panel(ctx, VIEW.WIDTH - 222, 12, 210, 86, { fill: "rgba(0,0,0,0.55)", radius: 10 });
-    Painter.text(ctx, `$ ${p.money}`, VIEW.WIDTH - 24, 36, {
+    // Painel superior-direito: dinheiro + profundidade.
+    Painter.panel(ctx, VIEW.WIDTH - 222, 12, 210, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });
+    Painter.text(ctx, `$ ${p.money}`, VIEW.WIDTH - 24, 38, {
       size: 24, color: PALETTE.ACCENT, align: "right", baseline: "middle", weight: "bold",
     });
-    Painter.text(ctx, `meta: $${META}`, VIEW.WIDTH - 24, 58, {
-      size: 12, color: PALETTE.TEXT_DIM, align: "right", baseline: "middle",
-    });
-    Painter.text(ctx, `profundidade: ${p.depthMeters} m`, VIEW.WIDTH - 24, 80, {
+    Painter.text(ctx, `profundidade: ${p.depthMeters} m`, VIEW.WIDTH - 24, 66, {
       size: 12, color: PALETTE.TEXT_DIM, align: "right", baseline: "middle",
     });
 
