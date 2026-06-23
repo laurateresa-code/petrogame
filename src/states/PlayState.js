@@ -40,7 +40,8 @@ export class PlayState extends State {
     this.game.camera.y = this.player.y - VIEW.HEIGHT / 2;
     this.game.camera._clampToBounds();
 
-    this._over = null; // null | "win" | "lose"
+    this._over = null;      // null | "win" | "lose"
+    this._explosion = null; // efeito ativo de explosão (bomba)
     this._time = 0;
   }
 
@@ -51,6 +52,9 @@ export class PlayState extends State {
       this.game.states.change(STATES.MENU);
       return;
     }
+
+    // A explosão roda mesmo após a morte (para ser vista antes do overlay).
+    if (this._explosion) this._explosion.t += dt;
 
     // Fim de jogo: aguarda R (reiniciar) ou ESC (já tratado acima).
     if (this._over) {
@@ -63,23 +67,92 @@ export class PlayState extends State {
     if (this.player.justSold > 0) this.game.camera.shake(6);
     if (this.player.justCollected) this.game.camera.shake(3);
 
-    // Câmera segue a sonda.
+    // Câmera segue a sonda (ou a explosão).
     this.game.camera.follow(this.player.x, this.player.y, dt);
 
-    // Condições de fim.
-    if (this.player.money >= META) this._over = "win";
-    else if (this.player.dead) this._over = "lose";
+    // Vitória.
+    if (this.player.money >= META) { this._over = "win"; return; }
+
+    // Derrota.
+    if (this.player.dead) {
+      if (this.player.boom) {
+        // Dispara a explosão uma vez e segura o overlay até ela tocar.
+        if (!this._explosion) {
+          this._explosion = this._spawnExplosion(this.player.boomX, this.player.boomY);
+          this.game.camera.shake(26);
+        }
+        if (this._explosion.t >= this._explosion.dur) this._over = "lose";
+      } else {
+        this._over = "lose";
+      }
+    }
+  }
+
+  /** Cria um conjunto de partículas para a explosão da bomba. */
+  _spawnExplosion(x, y) {
+    const parts = [];
+    for (let i = 0; i < 28; i++) {
+      parts.push({
+        a: Math.random() * Math.PI * 2,
+        spd: 60 + Math.random() * 230,
+        size: 3 + Math.random() * 5,
+        life: 0.45 + Math.random() * 0.5,
+      });
+    }
+    return { x, y, t: 0, dur: 0.95, parts };
   }
 
   render(ctx) {
     const cam = this.game.camera;
     cam.apply(ctx);
     this._renderWorld(ctx, cam);
-    this.player.render(ctx);
+    // Durante a explosão a sonda some (foi destruída).
+    if (!this.player.boom) this.player.render(ctx);
+    if (this._explosion) this._renderExplosion(ctx, this._explosion);
     cam.reset(ctx);
 
     this._renderHud(ctx);
     if (this._over) this._renderOverlay(ctx);
+  }
+
+  /** Desenha a explosão (clarão + anel de choque + estilhaços) no mundo. */
+  _renderExplosion(ctx, ex) {
+    const p = Math.min(1, ex.t / ex.dur);
+    ctx.save();
+
+    // Clarão central.
+    const flashR = 12 + p * 75;
+    ctx.globalAlpha = Math.max(0, 1 - p);
+    const g = ctx.createRadialGradient(ex.x, ex.y, 0, ex.x, ex.y, flashR);
+    g.addColorStop(0, "#fff3c0");
+    g.addColorStop(0.45, "#ff9b2e");
+    g.addColorStop(1, "rgba(120,30,10,0)");
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, flashR, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Anel de choque.
+    ctx.globalAlpha = Math.max(0, 0.8 - p);
+    ctx.strokeStyle = "#ffd27a";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(ex.x, ex.y, 16 + p * 95, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Estilhaços.
+    for (const part of ex.parts) {
+      const lt = Math.min(ex.t, part.life);
+      const px = ex.x + Math.cos(part.a) * part.spd * lt;
+      const py = ex.y + Math.sin(part.a) * part.spd * lt + 150 * lt * lt; // gravidade leve
+      const a = 1 - ex.t / part.life;
+      if (a <= 0) continue;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = a > 0.5 ? "#ffd27a" : PALETTE.DANGER;
+      ctx.fillRect(px - part.size / 2, py - part.size / 2, part.size, part.size);
+    }
+
+    ctx.restore();
   }
 
   // ---- Mundo ------------------------------------------------------------
@@ -214,7 +287,8 @@ export class PlayState extends State {
     ctx.fillRect(0, 0, VIEW.WIDTH, VIEW.HEIGHT);
 
     const win = this._over === "win";
-    Painter.text(ctx, win ? "VOCÊ ENRIQUECEU!" : "SEM COMBUSTÍVEL", VIEW.WIDTH / 2, VIEW.HEIGHT / 2 - 40, {
+    const loseMsg = this.player.boom ? "BOOM! A SONDA EXPLODIU" : "SEM COMBUSTÍVEL";
+    Painter.text(ctx, win ? "VOCÊ ENRIQUECEU!" : loseMsg, VIEW.WIDTH / 2, VIEW.HEIGHT / 2 - 40, {
       size: 44, color: win ? PALETTE.OK : PALETTE.DANGER, align: "center", baseline: "middle", weight: "bold", shadow: true,
     });
     Painter.text(ctx, `Dinheiro: $${this.player.money}   •   Profundidade máx.: ${this.player.maxDepth} m`, VIEW.WIDTH / 2, VIEW.HEIGHT / 2 + 6, {

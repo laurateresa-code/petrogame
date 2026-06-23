@@ -57,6 +57,9 @@ export class Player {
 
     // Sinais para o HUD/efeitos (consumidos pelo PlayState).
     this.dead = false;
+    this.boom = false;        // morreu por bomba? (dispara a explosão)
+    this.boomX = 0;
+    this.boomY = 0;
     this.flash = "";          // mensagem curta ("CARGA CHEIA!", "VENDIDO +$..")
     this._flashTimer = 0;
     this.justSold = 0;        // valor vendido neste frame (para shake/efeito)
@@ -103,9 +106,16 @@ export class Player {
     if (this._digTimer >= this._digDuration) {
       const { col, row } = this._digTarget;
       const def = this.world.remove(col, row);
-      this._collect(def);
       this.digging = false;
       this._digTarget = null;
+
+      // Bomba escondida: a broca encostou — explode e o jogador perde.
+      if (def.bomb) {
+        this._explode(col, row);
+        return;
+      }
+
+      this._collect(def);
       // Entra na célula recém-aberta.
       this._beginMove(col, row, false);
     }
@@ -171,18 +181,28 @@ export class Player {
   _decide(dt, input) {
     const { col, row } = this;
 
-    // Gravidade: se há vazio abaixo, cai (de graça).
-    if (!this.world.isSolid(col, row + 1)) {
-      this._beginMove(col, row + 1, true);
-      return;
-    }
-
-    // Apoiada: lê comandos.
     const down = input.isDown("ArrowDown") || input.isDown("KeyS");
     const left = input.isDown("ArrowLeft") || input.isDown("KeyA");
     const right = input.isDown("ArrowRight") || input.isDown("KeyD");
     const up = input.isDown("ArrowUp") || input.isDown("KeyW") || input.isDown("Space");
 
+    // Jato (subir) tem PRIORIDADE sobre a gravidade — sem isso seria impossível
+    // sair do próprio poço (a gravidade puxaria de volta a cada frame).
+    if (up && row - 1 >= 0 && !this.world.isSolid(col, row - 1)) {
+      this.drillDir = "up";
+      if (this.fuel <= 0) { this._die(); return; }
+      this._spendFuel(1.6);
+      this._beginMove(col, row - 1, false);
+      return;
+    }
+
+    // Gravidade: se há vazio abaixo e não estamos subindo, cai (de graça).
+    if (!this.world.isSolid(col, row + 1)) {
+      this._beginMove(col, row + 1, true);
+      return;
+    }
+
+    // Apoiada: perfurar / mover.
     if (down) {
       this.drillDir = "down"; this.facing = 0;
       if (this.world.isDiggable(col, row + 1)) this._startDig(col, row + 1);
@@ -200,17 +220,6 @@ export class Player {
         this._beginMove(tc, row, false);
       } else if (this.world.isDiggable(tc, row)) {
         this._startDig(tc, row);
-      }
-      return;
-    }
-
-    if (up) {
-      this.drillDir = "up";
-      // Jato: só sobe por células já abertas, gastando combustível.
-      if (row - 1 >= 0 && !this.world.isSolid(col, row - 1)) {
-        if (this.fuel <= 0) { this._die(); return; }
-        this._spendFuel(1.6);
-        this._beginMove(col, row - 1, false);
       }
       return;
     }
@@ -236,6 +245,19 @@ export class Player {
 
   _die() {
     this.fuel = 0;
+    this.dead = true;
+    this.digging = false;
+    this.moving = false;
+  }
+
+  /** Morte por bomba: marca a origem da explosão (centro da célula da bomba). */
+  _explode(col, row) {
+    this.boom = true;
+    this.boomX = this._cellCenterX(col);
+    this.boomY = this._cellCenterY(row);
+    // Posiciona a sonda sobre a bomba para a explosão sair de onde a broca tocou.
+    this.x = this.boomX;
+    this.y = this.boomY;
     this.dead = true;
     this.digging = false;
     this.moving = false;

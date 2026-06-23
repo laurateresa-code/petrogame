@@ -19,6 +19,7 @@ export const BLOCK = Object.freeze({
   GEM: 5,
   FUEL: 6,
   BEDROCK: 7,
+  BOMB: 8,
 });
 
 /** Tabela de propriedades indexada pelo id do bloco. */
@@ -31,6 +32,8 @@ export const BLOCK_DEFS = Object.freeze({
   [BLOCK.GEM]:      { name: "esmeralda", solid: true,  hardness: 0.95, value: 180, fuel: 0,  cargo: true,  color: "#27c08a" },
   [BLOCK.FUEL]:     { name: "gás",       solid: true,  hardness: 0.45, value: 0,   fuel: 35, cargo: false, color: "#d24bd2" },
   [BLOCK.BEDROCK]:  { name: "base",      solid: true,  hardness: 0,    value: 0,   fuel: 0,  cargo: false, color: "#17120c" },
+  // Bomba: disfarçada de terra (mesma dureza/cor) — só se revela ao explodir.
+  [BLOCK.BOMB]:     { name: "bomba",     solid: true,  hardness: 0.35, value: 0,   fuel: 0,  cargo: false, color: "#6b4423", bomb: true },
 });
 
 /** Atalho seguro: retorna a definição de um id (cai em EMPTY se desconhecido). */

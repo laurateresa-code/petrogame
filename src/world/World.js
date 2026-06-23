@@ -54,6 +54,9 @@ export class World {
     // Bolsões de gás aparecem em qualquer profundidade (raros).
     if (chance(0.018)) return BLOCK.FUEL;
 
+    // Bombas escondidas: parecem terra; ficam mais densas com a profundidade.
+    if (depth > 4 && chance(clamp(depth * 0.0022, 0, 0.05))) return BLOCK.BOMB;
+
     // Esmeraldas: só fundo, bem raras.
     if (depth > 18 && chance(clamp((depth - 18) * 0.0016, 0, 0.04))) return BLOCK.GEM;
 
