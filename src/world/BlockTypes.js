@@ -28,8 +28,8 @@ export const BLOCK_DEFS = Object.freeze({
   [BLOCK.DIRT]:     { name: "terra",     solid: true,  hardness: 0.35, value: 0,   fuel: 0,  cargo: false, color: "#6b4423" },
   [BLOCK.ROCK]:     { name: "rocha",     solid: true,  hardness: 0.75, value: 0,   fuel: 0,  cargo: false, color: "#5d5b57" },
   [BLOCK.HARDROCK]: { name: "granito",   solid: true,  hardness: 1.35, value: 0,   fuel: 0,  cargo: false, color: "#3f3e3c" },
-  [BLOCK.OIL]:      { name: "petróleo",  solid: true,  hardness: 0.55, value: 60,  fuel: 0,  cargo: true,  color: "#1a1a22" },
-  [BLOCK.GEM]:      { name: "esmeralda", solid: true,  hardness: 0.95, value: 180, fuel: 0,  cargo: true,  color: "#27c08a" },
+  [BLOCK.OIL]:      { name: "petróleo",  solid: true,  hardness: 0.55, value: 60,  fuel: 0,  cargo: true,  color: "#1a1a22", resource: "barris" },
+  [BLOCK.GEM]:      { name: "esmeralda", solid: true,  hardness: 0.95, value: 180, fuel: 0,  cargo: true,  color: "#27c08a", resource: "gemas" },
   [BLOCK.FUEL]:     { name: "gás",       solid: true,  hardness: 0.45, value: 0,   fuel: 35, cargo: false, color: "#d24bd2" },
   [BLOCK.BEDROCK]:  { name: "base",      solid: true,  hardness: 0,    value: 0,   fuel: 0,  cargo: false, color: "#17120c" },
   // Bomba: disfarçada de terra (mesma dureza/cor) — só se revela ao explodir.

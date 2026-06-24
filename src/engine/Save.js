@@ -12,10 +12,15 @@ import { SAVE_KEY } from "../config/Constants.js";
 function defaultProfile() {
   return {
     money: 0,
+    barris: 0,            // petróleo coletado (matéria-prima da refinaria)
+    gemas: 0,             // esmeraldas coletadas
     drill: "iron",
     ownedDrills: ["iron"],
     scenario: "desert",
     ownedScenarios: ["desert"],
+    fuelTank: "std",
+    ownedTanks: ["std"],
+    crafted: {},          // { idMaterial: quantidade já fabricada }
   };
 }
 
@@ -32,6 +37,8 @@ export const Save = {
         ...data,
         ownedDrills: Array.isArray(data.ownedDrills) ? data.ownedDrills : base.ownedDrills,
         ownedScenarios: Array.isArray(data.ownedScenarios) ? data.ownedScenarios : base.ownedScenarios,
+        ownedTanks: Array.isArray(data.ownedTanks) ? data.ownedTanks : base.ownedTanks,
+        crafted: (data.crafted && typeof data.crafted === "object") ? data.crafted : base.crafted,
       };
     } catch {
       return base;

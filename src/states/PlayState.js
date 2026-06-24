@@ -18,8 +18,7 @@ import { Painter, pointInRect } from "../ui/Painter.js";
 import { World } from "../world/World.js";
 import { Player } from "../entities/Player.js";
 import { BLOCK, blockDef } from "../world/BlockTypes.js";
-import { GameConfig } from "../config/GameConfig.js";
-import { findDrill, findScenario } from "../config/Shop.js";
+import { findDrill, findScenario, findTank } from "../config/Shop.js";
 
 export class PlayState extends State {
   enter(params = {}) {
@@ -28,6 +27,7 @@ export class PlayState extends State {
     // Retomada após visitar a LOJA: mantém a partida e reaplica os upgrades.
     if (params.resume && this.world) {
       this.player.drillSpeed = findDrill(this.game.profile.drill).drillSpeed;
+      this.player.maxFuel = findTank(this.game.profile.fuelTank).maxFuel;
       this._pal = findScenario(this.game.profile.scenario).palette;
       this.game.camera.setBounds(this.world.bounds);
       this._paused = true;
@@ -56,8 +56,9 @@ export class PlayState extends State {
   _newRun() {
     this.world = new World({ cols: 30, rows: 140, surfaceRows: 3 }).generate();
 
-    // Itens equipados (loja): broca define a velocidade; cenário, a paleta.
+    // Itens equipados (loja): broca = velocidade; tanque = combustível; cenário = paleta.
     const drill = findDrill(this.game.profile.drill);
+    const tank = findTank(this.game.profile.fuelTank);
     this._pal = findScenario(this.game.profile.scenario).palette;
 
     const col = this.world.randomSurfaceColumn();
@@ -65,6 +66,7 @@ export class PlayState extends State {
     this.player = new Player(this.world, col, row, {
       profile: this.game.profile,
       drillSpeed: drill.drillSpeed,
+      maxFuel: tank.maxFuel,
     });
 
     this.game.camera.setBounds(this.world.bounds);
@@ -452,11 +454,14 @@ export class PlayState extends State {
     Painter.panel(ctx, hx, 12, 230, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });
 
     Painter.text(ctx, "COMBUSTÍVEL", hx + 12, 30, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
-    const fuelRatio = p.fuel / GameConfig.fuel.max;
+    const fuelRatio = p.fuel / p.maxFuel;
     const fuelColor = fuelRatio > 0.3 ? PALETTE.OK : PALETTE.DANGER;
     Painter.bar(ctx, hx + 12, 38, 206, 12, fuelRatio, { fill: fuelColor, bg: "#2a2620" });
 
-    Painter.text(ctx, `tesouros coletados: ${p.collected}`, hx + 12, 66, { size: 12, color: PALETTE.TEXT_DIM, baseline: "middle" });
+    const prof = this.game.profile;
+    Painter.text(ctx, `petróleo: ${prof.barris} barris   •   gemas: ${prof.gemas}`, hx + 12, 66, {
+      size: 12, color: PALETTE.TEXT_DIM, baseline: "middle",
+    });
 
     // Painel superior-direito: dinheiro + profundidade.
     Painter.panel(ctx, VIEW.WIDTH - 222, 12, 210, 70, { fill: "rgba(0,0,0,0.55)", radius: 10 });

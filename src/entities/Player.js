@@ -25,11 +25,13 @@ export class Player {
    * @param {object} opts
    * @param {object} opts.profile    perfil persistente (dono do dinheiro)
    * @param {number} opts.drillSpeed multiplicador da broca equipada
+   * @param {number} opts.maxFuel    capacidade do tanque equipado
    */
-  constructor(world, col, row, { profile, drillSpeed = 1 } = {}) {
+  constructor(world, col, row, { profile, drillSpeed = 1, maxFuel = FUEL.max } = {}) {
     this.world = world;
     this.profile = profile;
     this.drillSpeed = drillSpeed;
+    this.maxFuel = maxFuel;
     this.size = TILE.SIZE - 6; // um pouco menor que a célula
 
     // Posição lógica (célula) e posição em pixels (centro, para render/câmera).
@@ -55,7 +57,7 @@ export class Player {
     this.drillDir = "down";
 
     // Recursos. O dinheiro vive no perfil persistente (ver get money()).
-    this.fuel = FUEL.max;
+    this.fuel = this.maxFuel;
     this.collected = 0;  // total de itens valiosos coletados (estatística)
     this.maxDepth = 0;
 
@@ -144,16 +146,18 @@ export class Player {
 
   _collect(def) {
     if (def.fuel > 0) {
-      this.fuel = clamp(this.fuel + def.fuel, 0, FUEL.max);
+      this.fuel = clamp(this.fuel + def.fuel, 0, this.maxFuel);
       this._setFlash(`+${def.fuel} COMBUSTÍVEL`, 1.2);
       this.justFuel = true;
     }
-    // Venda imediata: o item vira dinheiro no instante da coleta.
+    // Venda imediata: o item vira dinheiro no instante da coleta...
     if (def.cargo && def.value > 0) {
       this.profile.money += def.value;
       this.collected += 1;
       this.justSold = def.value;   // dispara o efeito de venda (shake/flash)
       this.justCollected = true;
+      // ...e também acumula a matéria-prima (barris/gemas) para a refinaria.
+      if (def.resource) this.profile[def.resource] += 1;
       this._setFlash(`+$${def.value}`, 1.0);
     }
   }
@@ -238,13 +242,13 @@ export class Player {
 
   // ---- Superfície: reabastece de graça na BASE --------------------------
   _dock() {
-    if (this.fuel < FUEL.max) this._setFlash("REABASTECIDO", 1.2);
-    this.fuel = FUEL.max; // reabastecimento gratuito na base
+    if (this.fuel < this.maxFuel) this._setFlash("REABASTECIDO", 1.2);
+    this.fuel = this.maxFuel; // reabastecimento gratuito na base
   }
 
   // ---- Combustível / morte ----------------------------------------------
   _spendFuel(amount) {
-    this.fuel = clamp(this.fuel - amount, 0, FUEL.max);
+    this.fuel = clamp(this.fuel - amount, 0, this.maxFuel);
     if (this.fuel <= 0 && !this.atSurface) this._die();
   }
 
